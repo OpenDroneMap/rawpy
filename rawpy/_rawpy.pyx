@@ -564,7 +564,6 @@ cdef class RawPy:
         the RAW image and postprocessed image.        
         """
         def __get__(self):
-            self.ensure_unpack()
             cdef libraw_image_sizes_t* s = &self.p.imgdata.sizes
             return ImageSizes(raw_height=s.raw_height, raw_width=s.raw_width,
                               height=s.height, width=s.width,
