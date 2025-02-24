@@ -298,6 +298,10 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Cython',
         'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
         'Operating System :: MacOS',
         'Operating System :: Microsoft :: Windows',
         'Operating System :: POSIX',
@@ -308,5 +312,5 @@ setup(
       packages = find_packages(),
       ext_modules = extensions,
       package_data = package_data,
-      install_requires=['numpy']
+      install_requires=['numpy >= 1.26.0']
 )

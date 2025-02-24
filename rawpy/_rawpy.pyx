@@ -20,6 +20,9 @@ import sys
 import warnings
 from enum import Enum
 
+cdef extern from "limits.h":
+    cdef unsigned short USHRT_MAX
+
 cdef extern from "Python.h":
     wchar_t* PyUnicode_AsWideCharString(object, Py_ssize_t *)
 
@@ -61,6 +64,10 @@ cdef extern from "libraw.h":
         LIBRAW_IMAGE_JPEG
         LIBRAW_IMAGE_BITMAP
     
+    ctypedef struct libraw_raw_inset_crop_t:
+        ushort cleft, ctop
+        ushort cwidth, cheight
+    
     ctypedef struct libraw_image_sizes_t:
         ushort raw_height, raw_width
         ushort height, width
@@ -68,6 +75,7 @@ cdef extern from "libraw.h":
         ushort iheight, iwidth
         double pixel_aspect
         int flip
+        libraw_raw_inset_crop_t[2] raw_inset_crops
         
     ctypedef struct libraw_colordata_t:
         float       cam_mul[4] 
@@ -201,6 +209,7 @@ IF UNAME_SYSNAME == "Windows":
             int unpack() nogil
             int unpack_thumb() nogil
             int COLOR(int row, int col) nogil
+            int error_count() nogil
             int dcraw_process() nogil
             libraw_processed_image_t* dcraw_make_mem_image(int *errcode) nogil
             libraw_processed_image_t* dcraw_make_mem_thumb(int *errcode) nogil
@@ -218,6 +227,7 @@ ELSE:
             int unpack() nogil
             int unpack_thumb() nogil
             int COLOR(int row, int col)
+            int error_count() nogil
             int dcraw_process() nogil
             libraw_processed_image_t* dcraw_make_mem_image(int *errcode) nogil
             libraw_processed_image_t* dcraw_make_mem_thumb(int *errcode) nogil
@@ -247,7 +257,9 @@ ImageSizes = namedtuple('ImageSizes', ['raw_height', 'raw_width',
                                        'height', 'width', 
                                        'top_margin', 'left_margin',
                                        'iheight', 'iwidth',
-                                       'pixel_aspect', 'flip'])
+                                       'pixel_aspect', 'flip',
+                                       'crop_left_margin', 'crop_top_margin', 'crop_width', 'crop_height'
+                                       ])
 
 class RawType(Enum):
     """
@@ -565,11 +577,19 @@ cdef class RawPy:
         """
         def __get__(self):
             cdef libraw_image_sizes_t* s = &self.p.imgdata.sizes
+
+            # LibRaw returns 65535 for cleft and ctop in some files - probably those that do not specify them
+            cdef bint has_cleft = s.raw_inset_crops[0].cleft != USHRT_MAX
+            cdef bint has_ctop = s.raw_inset_crops[0].ctop != USHRT_MAX
+
             return ImageSizes(raw_height=s.raw_height, raw_width=s.raw_width,
                               height=s.height, width=s.width,
                               top_margin=s.top_margin, left_margin=s.left_margin,
                               iheight=s.iheight, iwidth=s.iwidth,
-                              pixel_aspect=s.pixel_aspect, flip=s.flip)
+                              pixel_aspect=s.pixel_aspect, flip=s.flip,
+                              crop_left_margin=s.raw_inset_crops[0].cleft if has_cleft else 0,
+                              crop_top_margin=s.raw_inset_crops[0].ctop if has_ctop else 0,
+                              crop_width=s.raw_inset_crops[0].cwidth, crop_height=s.raw_inset_crops[0].cheight)
     
     property num_colors:
         """
@@ -863,6 +883,9 @@ cdef class RawPy:
         If no image exists or the format is unsupported, an exception is raised.
 
         .. code-block:: python
+            import imageio.v3 as iio
+
+            ...
         
             with rawpy.imread('image.nef') as raw:
               try:
@@ -876,7 +899,7 @@ cdef class RawPy:
                   with open('thumb.jpg', 'wb') as f:
                     f.write(thumb.data)
                 elif thumb.format == rawpy.ThumbFormat.BITMAP:
-                  imageio.imsave('thumb.tiff', thumb.data)
+                  iio.imwrite('thumb.tiff', thumb.data)
         
         :rtype: :class:`rawpy.Thumbnail`
         """
@@ -951,6 +974,12 @@ cdef class RawPy:
                 raise LibRawFatalError(errstr)
             else:
                 raise LibRawNonFatalError(errstr)
+
+        cdef int error_count
+        with nogil:
+            error_count = self.p.error_count()
+        if error_count > 0:
+            raise LibRawDataError("Data error or unsupported file format")
 
 class DemosaicAlgorithm(Enum):
     """

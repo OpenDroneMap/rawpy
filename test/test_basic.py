@@ -10,7 +10,7 @@ from numpy.testing import assert_array_equal, assert_equal
 
 import rawpy
 import rawpy.enhance
-import imageio
+import imageio.v3 as iio
 from rawpy.enhance import _repair_bad_pixels_bayer2x2,\
     _repair_bad_pixels_generic, find_bad_pixels
 
@@ -35,6 +35,9 @@ raw5TestPath = os.path.join(thisDir, 'RAW_CANON_40D_SRAW_V103.CR2')
 # Kodak DC50 with special characters in filename
 raw6TestPath = os.path.join(thisDir, 'RAW_KODAK_DC50_é.KDC')
 
+# CR2 file with corrupted data
+raw7TestPath = os.path.join(thisDir, 'M0054341_01_00005.cr2')
+
 def testVersion():
     print('using libraw', rawpy.libraw_version)
     pprint(rawpy.flags)
@@ -49,48 +52,48 @@ def testFileOpenAndPostProcess():
     rgb = raw.postprocess(no_auto_bright=True, user_wb=raw.daylight_whitebalance)
     assert_array_equal(rgb.shape, [2844, 4284, 3])
     print_stats(rgb)
-    save('test_8daylight.tiff', rgb)
+    iio.imwrite('test_8daylight.tiff', rgb)
  
     print('daylight white balance multipliers:', raw.daylight_whitebalance)
      
     rgb = raw.postprocess(no_auto_bright=True, user_wb=raw.daylight_whitebalance)
     print_stats(rgb)
-    save('test_8daylight2.tiff', rgb)
+    iio.imwrite('test_8daylight2.tiff', rgb)
  
     rgb = raw.postprocess(no_auto_bright=True, user_wb=raw.daylight_whitebalance,
                           output_bps=16)
     print_stats(rgb)
-    save('test_16daylight.tiff', rgb)
+    iio.imwrite('test_16daylight.tiff', rgb)
      
     # linear images are more useful for science (=no gamma correction)
     # see http://www.mit.edu/~kimo/blog/linear.html
     rgb = raw.postprocess(no_auto_bright=True, user_wb=raw.daylight_whitebalance,
                           gamma=(1,1), output_bps=16)
     print_stats(rgb)
-    save('test_16daylight_linear.tiff', rgb)
+    iio.imwrite('test_16daylight_linear.tiff', rgb)
 
 def testFoveonFileOpenAndPostProcess():
     raw = rawpy.imread(raw4TestPath)
     
     assert_array_equal(raw.raw_image.shape, [1531, 2304, 3])
-    save('test_foveon_raw.tiff', raw.raw_image)
+    iio.imwrite('test_foveon_raw.tiff', raw.raw_image)
         
     rgb = raw.postprocess()
     assert_array_equal(rgb.shape, [1510, 2266, 3])
     print_stats(rgb)
-    save('test_foveon.tiff', rgb)
+    iio.imwrite('test_foveon.tiff', rgb)
 
 def testSRawFileOpenAndPostProcess():
     raw = rawpy.imread(raw5TestPath)
     
     assert_array_equal(raw.raw_image.shape, [1296, 1944, 4])
     assert_equal(raw.raw_image[:,:,3].max(), 0)
-    save('test_sraw_raw.tiff', raw.raw_image[:,:,:3])
+    iio.imwrite('test_sraw_raw.tiff', raw.raw_image[:,:,:3])
         
     rgb = raw.postprocess()
     assert_array_equal(rgb.shape, [1296, 1944, 3])
     print_stats(rgb)
-    save('test_sraw.tiff', rgb)
+    iio.imwrite('test_sraw.tiff', rgb)
 
 def testFileOpenWithNonAsciiCharacters():
     raw = rawpy.imread(raw6TestPath)
@@ -101,7 +104,7 @@ def testBufferOpen():
             assert_array_equal(raw.raw_image.shape, [2844, 4288])
             rgb = raw.postprocess()
     print_stats(rgb)
-    save('test_buffer.tiff', rgb)
+    iio.imwrite('test_buffer.tiff', rgb)
 
 def testContextManager():
     with rawpy.imread(rawTestPath) as raw:
@@ -137,7 +140,7 @@ def testThumbExtractJPEG():
     with rawpy.imread(rawTestPath) as raw:
         thumb = raw.extract_thumb()
     assert thumb.format == rawpy.ThumbFormat.JPEG
-    img = imageio.imread(thumb.data)
+    img = iio.imread(thumb.data)
     assert_array_equal(img.shape, [2832, 4256, 3])
 
 def testThumbExtractBitmap():
@@ -225,6 +228,38 @@ def testVisibleSize():
         assert_equal(h, s.height)
         assert_equal(w, s.width)
         
+def testCropSizeNikon():
+    with rawpy.imread(rawTestPath) as raw:
+        s = raw.sizes
+        assert_equal(s.crop_left_margin, 0)
+        assert_equal(s.crop_top_margin, 0)
+        assert_equal(s.crop_width, 0)
+        assert_equal(s.crop_height, 0)
+
+def testCropSizeCanon():
+    with rawpy.imread(raw3TestPath) as raw:
+        s = raw.sizes
+        assert_equal(s.crop_left_margin, 168)
+        assert_equal(s.crop_top_margin, 56)
+        assert_equal(s.crop_width, 5616)
+        assert_equal(s.crop_height, 3744)
+
+def testCropSizeSigma():
+    with rawpy.imread(raw4TestPath) as raw:
+        s = raw.sizes
+        assert_equal(s.crop_left_margin, 0)
+        assert_equal(s.crop_top_margin, 0)
+        assert_equal(s.crop_width, 0)
+        assert_equal(s.crop_height, 0)
+
+def testCropSizeKodak():
+    with rawpy.imread(raw6TestPath) as raw:
+        s = raw.sizes
+        assert_equal(s.crop_left_margin, 0)
+        assert_equal(s.crop_top_margin, 0)
+        assert_equal(s.crop_width, 0)
+        assert_equal(s.crop_height, 0)
+
 def testHalfSizeParameter():
     raw = rawpy.imread(rawTestPath)
     s = raw.sizes
@@ -267,22 +302,15 @@ def testLibRawOutOfOrderCallError():
     with pytest.raises(rawpy.LibRawOutOfOrderCallError):
         raw = rawpy.RawPy()
         raw.unpack()
-    
-def save(path, im):
-    # both imageio and skimage currently save uint16 images with 180deg rotation
-    # as they both use freeimage and this has some weird internal formats
-    # see https://github.com/scikit-image/scikit-image/issues/1101
-    # and https://github.com/imageio/imageio/issues/3
-    from distutils.version import StrictVersion
-    if im.dtype == np.uint16 and StrictVersion(imageio.__version__) <= StrictVersion('0.5.1'):
-        im = im[::-1,::-1]
-    imageio.imsave(path, im)
+
+def testCorruptFile():
+    im = rawpy.imread(raw7TestPath)
+    with pytest.raises(rawpy.LibRawDataError):
+        im.postprocess()
+    with pytest.raises(rawpy.LibRawDataError):
+        im.extract_thumb()
 
 def print_stats(rgb):
-    # np.min supports axis tuple from 1.10
-    from distutils.version import StrictVersion
-    if StrictVersion(np.__version__) <= StrictVersion('1.10'):
-        return
     print(rgb.dtype, 
           np.min(rgb, axis=(0,1)), np.max(rgb, axis=(0,1)), # range for each channel
           [len(np.unique(rgb[:,:,0])), len(np.unique(rgb[:,:,1])), len(np.unique(rgb[:,:,2]))], # unique values
@@ -293,4 +321,4 @@ if __name__ == '__main__':
     #testFileOpenAndPostProcess()
     #testBadPixelRepair()
     testFindBadPixelsNikonD4()
-    
+    testCorruptFile()
