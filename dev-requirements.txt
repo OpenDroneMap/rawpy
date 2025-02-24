@@ -4,7 +4,7 @@ delocate;sys.platform == 'darwin'
 cython
 
 # build and runtime dependencies
-numpy
+numpy<=1.26.4
 
 # optional runtime dependencies
 scikit-image

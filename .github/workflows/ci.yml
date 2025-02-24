@@ -65,7 +65,6 @@ jobs:
           python-version: '3.9'
           numpy-version: '1.21.*'
 
-
         - os-image: windows-2019
           os-name: windows
           python-arch: 'x86_64'

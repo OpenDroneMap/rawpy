@@ -80,6 +80,7 @@ Get-ChildItem env:
 Create-And-Enter-VEnv import-test
 python -m pip uninstall -y rawpy
 ls dist\*cp${PYVER}*win*.whl | % { exec { python -m pip install $_ } }
+exec { python -m pip install numpy==$env:NUMPY_VERSION }
 
 # Avoid using in-source package during tests
 mkdir -f tmp_for_test | out-null
