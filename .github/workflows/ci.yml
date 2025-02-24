@@ -44,7 +44,7 @@ jobs:
           python-version: '3.9'
           numpy-version: '1.21.*'
 
-        - os-image: ubuntu-latest
+        - os-image: ubuntu-24.04-arm
           os-name: linux
           docker-image: quay.io/pypa/manylinux2014_aarch64
           python-arch: 'aarch64'
@@ -140,7 +140,7 @@ jobs:
           python-version: '3.9'
           numpy-version: '1.21.*'
 
-        - os-image: ubuntu-latest
+        - os-image: ubuntu-24.04-arm
           os-name: linux
           docker-image: quay.io/pypa/manylinux2014_aarch64
           python-arch: 'aarch64'

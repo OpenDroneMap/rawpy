@@ -8,7 +8,7 @@ python -m venv env/$VENV
 source env/$VENV/bin/activate
 
 # Install rawpy
-pip install dist/rawpy*cp${PYVER}*macosx*${PYTHON_ARCH}*.whl
+pip install dist/odmrawpy*cp${PYVER}*macosx*${PYTHON_ARCH}*.whl
 
 # Test installed rawpy
 pip install -r dev-requirements.txt "numpy==${NUMPY_VERSION}"

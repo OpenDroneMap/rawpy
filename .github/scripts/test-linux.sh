@@ -23,7 +23,7 @@ fi
 PYVER=${PYTHON_VERSION//.}
 
 # Install package and test
-${PYBIN}/pip install ./dist/rawpy*cp${PYVER}*manylinux*${PYTHON_ARCH}*.whl
+${PYBIN}/pip install ./dist/odmrawpy*cp${PYVER}*manylinux*${PYTHON_ARCH}*.whl
 ${PYBIN}/pip install -r dev-requirements.txt "numpy==${NUMPY_VERSION}"
 
 mkdir tmp_for_test
