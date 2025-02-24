@@ -70,12 +70,12 @@ jobs:
           os-name: windows
           python-arch: 'x86_64'
           python-version: '3.8'
-          numpy-version: '1.21.*'
+          numpy-version: '1.23.*'
         - os-image: windows-2019
           os-name: windows
           python-arch: 'x86_64'
           python-version: '3.9'
-          numpy-version: '1.21.*'
+          numpy-version: '1.23.*'
 
     runs-on: ${{ matrix.config.os-image }}
 
